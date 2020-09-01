@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import torch
 
 import posenet.constants
 
@@ -10,15 +11,19 @@ def valid_resolution(width, height, output_stride=16):
     return target_width, target_height
 
 
-def _process_input(source_img, scale_factor=1.0, output_stride=16):
+# @profile
+def _process_input(source_img, scale_factor=1.0, output_stride=16, cuda=False):
     target_width, target_height = valid_resolution(
         source_img.shape[1] * scale_factor, source_img.shape[0] * scale_factor, output_stride=output_stride)
     scale = np.array([source_img.shape[0] / target_height, source_img.shape[1] / target_width])
 
     input_img = cv2.resize(source_img, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
-    input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB).astype(np.float32)
-    input_img = input_img * (2.0 / 255.0) - 1.0
-    input_img = input_img.transpose((2, 0, 1)).reshape(1, 3, target_height, target_width)
+    input_img = input_img[:, :, ::-1].transpose((2, 0, 1)).copy()
+    if cuda:
+        input_img = torch.from_numpy(input_img).cuda()
+    else:
+        input_img = torch.from_numpy(input_img)
+    input_img = (input_img.float() / 255.0).view(1, 3, target_height, target_width)
     return input_img, source_img, scale
 
 
@@ -26,12 +31,12 @@ def read_cap(cap, scale_factor=1.0, output_stride=16):
     res, img = cap.read()
     if not res:
         raise IOError("webcam failure")
-    return _process_input(img, scale_factor, output_stride)
+    return _process_input(img, scale_factor, output_stride, True)
 
 
 def read_imgfile(path, scale_factor=1.0, output_stride=16):
     img = cv2.imread(path)
-    return _process_input(img, scale_factor, output_stride)
+    return _process_input(img, scale_factor, output_stride, True)
 
 
 def draw_keypoints(

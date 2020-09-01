@@ -30,7 +30,7 @@ def main():
             cap, scale_factor=args.scale_factor, output_stride=output_stride)
 
         with torch.no_grad():
-            input_image = torch.Tensor(input_image).cuda()
+            input_image = input_image.cuda()
 
             heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = model(input_image)
 
